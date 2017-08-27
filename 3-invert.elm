@@ -2,13 +2,12 @@ module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events as Events
-import Canvas exposing (Size, Error, DrawOp(..), Canvas)
-import Canvas.Point exposing (Point)
-import Canvas.Point as Point
+import Canvas exposing (Size, Error, Point, DrawOp(..), Canvas)
 import Array exposing (Array)
 import Task
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = ( Loading, loadImage )
@@ -19,7 +18,7 @@ main =
 
 
 
--- TYPES
+-- TYPES --
 
 
 type Msg
@@ -40,47 +39,46 @@ loadImage =
 
 
 
--- UPDATE
+-- UPDATE --
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
-    case message of
-        ImageLoaded result ->
-            case Result.toMaybe result of
-                Just canvas ->
-                    ( GotCanvas canvas, Cmd.none )
+    case ( message, model ) of
+        ( ImageLoaded (Ok canvas), _ ) ->
+            ( GotCanvas canvas, Cmd.none )
 
-                Nothing ->
-                    ( Loading, loadImage )
+        ( Click, GotCanvas canvas ) ->
+            ( GotCanvas (invert canvas), Cmd.none )
 
-        Click ->
-            case model of
-                Loading ->
-                    ( Loading, loadImage )
-
-                GotCanvas canvas ->
-                    ( GotCanvas (invert canvas), Cmd.none )
+        _ ->
+            ( Loading, loadImage )
 
 
 invert : Canvas -> Canvas
 invert canvas =
-    Canvas.batch
-        [ PutImageData
-            (invertedImageData canvas)
-            (Canvas.getSize canvas)
-            (Point.fromInts ( 0, 0 ))
-        ]
-        canvas
+    let
+        drawOp =
+            PutImageData
+                (invertedImageData canvas)
+                (Canvas.getSize canvas)
+                (Point 0 0)
+    in
+        Canvas.draw drawOp canvas
 
 
 invertedImageData : Canvas -> List Int
 invertedImageData canvas =
-    canvas
-        |> Canvas.getImageData
-            (Point.fromInts ( 0, 0 ))
-            (Canvas.getSize canvas)
-        |> List.indexedMap invertHelp
+    let
+        point =
+            Point 0 0
+
+        size =
+            Canvas.getSize canvas
+    in
+        canvas
+            |> Canvas.getImageData point size
+            |> List.indexedMap invertHelp
 
 
 invertHelp : Int -> Int -> Int
@@ -92,7 +90,7 @@ invertHelp index color =
 
 
 
--- VIEW
+-- VIEW --
 
 
 view : Model -> Html Msg

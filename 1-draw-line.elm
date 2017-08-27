@@ -2,13 +2,15 @@ module Main exposing (..)
 
 import Html exposing (Html, Attribute)
 import Html.Attributes exposing (style)
-import Canvas exposing (Size, DrawOp(..), Canvas)
-import Canvas.Point exposing (Point)
-import Canvas.Point as Point
-import Canvas.Events
+import Canvas exposing (Size, Point, DrawOp(..), Canvas)
 import Color exposing (Color)
+import MouseEvents exposing (MouseEvent)
 
 
+-- MAIN --
+
+
+main : Program Never Model Msg
 main =
     Html.beginnerProgram
         { model =
@@ -21,44 +23,51 @@ main =
 
 
 type ClickState
-    = Nothing
-    | FirstClick Point
+    = Click Point
     | Moving Point Point
 
 
 type Msg
-    = Click Point
-    | Move Point
+    = MouseDown MouseEvent
+    | Move MouseEvent
 
 
 type alias Model =
-    ( Canvas, ClickState )
+    ( Canvas, Maybe ClickState )
+
+
+
+-- UPDATE --
 
 
 update : Msg -> Model -> Model
 update message ( canvas, clickState ) =
-    case message of
-        Click position ->
-            case clickState of
-                Nothing ->
-                    ( canvas, FirstClick position )
+    case ( clickState, message ) of
+        ( Nothing, MouseDown mouseEvent ) ->
+            ( canvas, Just (Click (toPoint mouseEvent)) )
 
-                FirstClick p1 ->
-                    ( canvas, clickState )
+        ( Just (Moving pt0 pt1), MouseDown mouseEvent ) ->
+            ( drawLine pt0 pt1 canvas, Nothing )
 
-                Moving p0 p1 ->
-                    ( drawLine p0 p1 canvas, Nothing )
+        ( Just (Click point0), Move mouseEvent ) ->
+            ( canvas, Just (Moving point0 (toPoint mouseEvent)) )
 
-        Move position ->
-            case clickState of
-                Nothing ->
-                    ( canvas, Nothing )
+        ( Just (Moving point0 _), Move mouseEvent ) ->
+            ( canvas, Just (Moving point0 (toPoint mouseEvent)) )
 
-                FirstClick p0 ->
-                    ( canvas, Moving p0 position )
+        _ ->
+            ( canvas, clickState )
 
-                Moving p0 _ ->
-                    ( canvas, Moving p0 position )
+
+toPoint : MouseEvent -> Point
+toPoint { targetPos, clientPos } =
+    Point
+        (toFloat (clientPos.x - targetPos.x))
+        (toFloat (clientPos.y - targetPos.y))
+
+
+
+-- VIEW --
 
 
 view : Model -> Html Msg
@@ -66,8 +75,8 @@ view model =
     Canvas.toHtml
         [ style
             [ ( "border", "4px solid black" ) ]
-        , Canvas.Events.onMouseDown Click
-        , Canvas.Events.onMouseMove Move
+        , MouseEvents.onMouseDown MouseDown
+        , MouseEvents.onMouseMove Move
         ]
         (handleClickState model)
 
@@ -75,23 +84,21 @@ view model =
 handleClickState : Model -> Canvas
 handleClickState ( canvas, clickState ) =
     case clickState of
-        Nothing ->
-            canvas
+        Just (Moving pt0 pt1) ->
+            drawLine pt0 pt1 canvas
 
-        FirstClick _ ->
+        _ ->
             canvas
-
-        Moving p0 p1 ->
-            drawLine p0 p1 canvas
 
 
 drawLine : Point -> Point -> Canvas -> Canvas
-drawLine p0 p1 =
-    Canvas.batch
-        [ BeginPath
-        , LineWidth 30
-        , LineCap "round"
-        , MoveTo p0
-        , LineTo p1
-        , Stroke
-        ]
+drawLine pt0 pt1 =
+    [ BeginPath
+    , LineWidth 30
+    , LineCap "round"
+    , MoveTo pt0
+    , LineTo pt1
+    , Stroke
+    ]
+        |> Canvas.batch
+        |> Canvas.draw

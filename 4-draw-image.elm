@@ -1,14 +1,13 @@
 module Main exposing (..)
 
 import Html exposing (..)
-import Canvas exposing (Size, Error, DrawOp(..), DrawImageParams(..), Canvas)
-import Canvas.Point exposing (Point)
-import Canvas.Point as Point
-import Canvas.Events as Events
-import Color exposing (Color)
+import Canvas exposing (Size, Error, Point, DrawOp(..), DrawImageParams(..), Canvas)
+import Color
+import MouseEvents exposing (MouseEvent)
 import Task
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = ( Loading, loadImage )
@@ -19,12 +18,12 @@ main =
 
 
 
--- TYPES
+-- TYPES --
 
 
 type Msg
     = ImageLoaded (Result Error Canvas)
-    | Blit Point
+    | Blit MouseEvent
 
 
 type Model
@@ -40,47 +39,56 @@ loadImage =
 
 
 
--- UPDATE
+-- UPDATE --
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
-    case message of
-        ImageLoaded result ->
-            case Result.toMaybe result of
-                Just canvas ->
-                    ( GotCanvas canvas []
-                    , Cmd.none
-                    )
+    case ( message, model ) of
+        ( ImageLoaded (Ok canvas), _ ) ->
+            let
+                scaledCanvas =
+                    let
+                        drawOp =
+                            Scaled
+                                (Point 0 0)
+                                (Size 300 300)
+                                |> DrawImage
+                                    canvas
+                    in
+                        Canvas.draw drawOp (Canvas.initialize (Size 300 300))
+                            
+            in
+                ( GotCanvas scaledCanvas [], Cmd.none )
 
-                Nothing ->
-                    ( Loading
-                    , loadImage
-                    )
+        ( Blit mouseEvent, GotCanvas canvas drawOps ) ->
+            let
+                newDrawOps =
+                    blit
+                        (toPoint mouseEvent)
+                        canvas
+                        drawOps
+            in
+                ( GotCanvas canvas newDrawOps, Cmd.none )
 
-        Blit point ->
-            case model of
-                Loading ->
-                    ( Loading
-                    , loadImage
-                    )
+        _ ->
+            ( Loading, loadImage )
 
-                GotCanvas canvas drawOps ->
-                    ( GotCanvas canvas (blit point canvas drawOps)
-                    , Cmd.none
-                    )
+
+toPoint : MouseEvent -> Point
+toPoint { targetPos, clientPos } =
+    Point
+        (toFloat (clientPos.x - targetPos.x))
+        (toFloat (clientPos.y - targetPos.y))
 
 
 blit : Point -> Canvas -> List DrawOp -> List DrawOp
 blit point canvas drawOps =
     let
-        newestOps =
-            if List.length drawOps > 200 then
-                List.take 199 drawOps
-            else
-                drawOps
+        newestOp =
+            DrawImage canvas (At point)
     in
-        (DrawImage canvas (Scaled point (Size 64 64))) :: newestOps
+        newestOp :: (List.take 199 drawOps)
 
 
 
@@ -103,28 +111,10 @@ presentIfReady model =
             p [] [ text "Loading image" ]
 
         GotCanvas canvas drawOps ->
-            Canvas.initialize (Size 800 600)
-                |> drawScaledImages drawOps
-                |> Canvas.toHtml [ Events.onMouseMove Blit ]
-                |> List.singleton
-                |> div []
-
-
-drawScaledImages : List DrawOp -> Canvas -> Canvas
-drawScaledImages drawOps canvas =
-    let
-        { width, height } =
-            Canvas.getSize canvas
-
-        drawOpsWithBorder : List DrawOp
-        drawOpsWithBorder =
-            List.append
-                drawOps
-                [ BeginPath
-                , StrokeStyle (Color.rgb 0 0 0)
-                , LineWidth 2.0
-                , Rect (Point.fromInts ( 0, 0 )) (Size 800 600)
-                , Stroke
+            div
+                []
+                [ Canvas.initialize (Size 800 800)
+                    |> Canvas.draw (Canvas.batch drawOps)
+                    |> Canvas.toHtml
+                        [ MouseEvents.onMouseMove Blit ]
                 ]
-    in
-        Canvas.batch drawOpsWithBorder canvas

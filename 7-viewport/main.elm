@@ -1,8 +1,11 @@
 module Main exposing (..)
 
 import AnimationFrame
-import Canvas exposing (Canvas, Error, DrawOp, DrawOp(..), DrawImageParams(..))
-import Canvas.Point exposing (Point, fromInts, fromFloats)
+import Canvas exposing (Canvas, Error, DrawOp, DrawOp(..), DrawImageParams(..), Point)
+
+
+-- import Canvas.Point exposing (Point, fromInts, fromFloats)
+
 import Html exposing (..)
 import Key exposing (..)
 import Keyboard exposing (KeyCode)
@@ -75,8 +78,7 @@ subscriptions model =
     Sub.batch
         [ Window.resizes SizeUpdated
         , Keyboard.downs KeyDown
-
-        -- , AnimationFrame.diffs TimeUpdate
+        , AnimationFrame.diffs TimeUpdate
         ]
 
 
@@ -188,13 +190,16 @@ viewport : Model -> Canvas
 viewport model =
     let
         point =
-            fromFloats ( model.imgClipOffset.x, model.imgClipOffset.y )
+            { x = model.imgClipOffset.x, y = model.imgClipOffset.y }
+
+        point_ =
+            { x = 0, y = 0 }
 
         drawImageParams =
-            CropScaled point model.windowSize (fromInts ( 0, 0 )) model.windowSize
+            CropScaled point model.windowSize point_ model.windowSize
 
         drawOps =
             [ DrawImage model.canvas drawImageParams ]
     in
         Canvas.initialize model.windowSize
-            |> Canvas.batch drawOps
+            |> Canvas.draw (Canvas.batch drawOps)

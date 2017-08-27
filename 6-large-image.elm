@@ -1,8 +1,7 @@
 module Main exposing (..)
 
 import Html exposing (..)
-import Canvas exposing (Size, Error, DrawOp(..), Canvas)
-import Canvas.Point exposing (Point)
+import Canvas exposing (Point, Size, Error, DrawOp(..), Canvas)
 import Task
 
 
@@ -14,6 +13,7 @@ main =
         , update = update
         , subscriptions = always Sub.none
         }
+
 
 
 -- TYPES
@@ -56,8 +56,9 @@ update message model =
                 Loading ->
                     ( Loading, loadImage )
 
-                GotCanvas canvas  ->
-                    ( GotCanvas canvas , Cmd.none )
+                GotCanvas canvas ->
+                    ( GotCanvas canvas, Cmd.none )
+
 
 
 -- VIEW
@@ -78,5 +79,5 @@ presentIfReady model =
         Loading ->
             p [] [ text "Loading image" ]
 
-        GotCanvas canvas  ->
+        GotCanvas canvas ->
             Canvas.toHtml [] canvas

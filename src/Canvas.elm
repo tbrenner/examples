@@ -2,11 +2,13 @@ module Canvas
     exposing
         ( Canvas
         , Error
+        , Point
         , Size
         , DrawOp(..)
         , DrawImageParams(..)
         , initialize
         , toHtml
+        , draw
         , batch
         , loadImage
         , getImageData
@@ -18,10 +20,10 @@ module Canvas
 {-| The canvas html element is a very simple way to render 2D graphics. Check out these examples, and get an explanation of the canvas element [here](https://github.com/elm-community/canvas). Furthermore, If you havent heard of [Elm-Graphics](http://package.elm-lang.org/packages/evancz/elm-graphics/latest), I recommend checking that out first, because its probably what you need. Elm-Canvas is for when you need unusually direct and low level access to the canvas element.
 
 # Main Types
-@docs Canvas, Size, DrawOp, DrawImageParams
+@docs Canvas, Point, Size, DrawOp, DrawImageParams
 
 # Basics
-@docs initialize, toHtml, batch
+@docs initialize, toHtml, draw, batch
 
 # Loading Images
 @docs loadImage, Error
@@ -37,7 +39,6 @@ module Canvas
 import Html exposing (Html, Attribute)
 import Task exposing (Task)
 import Color exposing (Color)
-import Canvas.Point exposing (Point)
 import Native.Canvas
 
 
@@ -57,6 +58,11 @@ type Error
 -}
 type alias Size =
     { width : Int, height : Int }
+
+
+{-|-}
+type alias Point =
+    { x : Float, y : Float }
 
 
 {-| `DrawOp` are how you can draw onto `Canvas`. To do so, give a `List DrawOp` to `Canvas.batch`, and apply that to a `Canvas`. Each `DrawOp` corresponds almost exactly to a method in the canvas api. [You can look up all the context methods here at the Mozilla Developer Network](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D). The biggest exception to the canvas api, is how we handle `ctx.drawImage()`. Since `ctx.drawImage()` can take parameters in three different ways, we made a union type `DrawImageParams` to handle each case.
@@ -103,6 +109,7 @@ type DrawOp
     | Clip
     | ClosePath
     | DrawImage Canvas DrawImageParams
+    | Batch (List DrawOp)
 
 
 {-| The `DrawOp` `DrawImage` takes a `Canvas` and a `DrawImageParam`. We made three different `DrawImageParam`, because there are three different sets of parameters you can give the native javascript `ctx.drawImage()`. [See here for more info](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/drawImage.)
@@ -134,11 +141,26 @@ toHtml : List (Attribute msg) -> Canvas -> Html msg
 toHtml =
     Native.Canvas.toHtml
 
-
-{-| This is our primary way of drawing onto canvases. Give `batch` a list of `DrawOp` and you can apply those `DrawOp` to a canvas.
+{-| This is our primary way of drawing onto canvases. Give `draw` a `drawOp` and apply it to a canvas.
 
     drawLine : Point -> Point -> Canvas -> Canvas
     drawLine p0 p1 =
+        (Canvas.batch >> Canvas.draw)
+            [ BeginPath
+            , LineWidth 2
+            , MoveTo p0
+            , LineTo p1
+            , Stroke
+            ]
+-}
+draw : DrawOp -> Canvas -> Canvas
+draw = 
+    Native.Canvas.draw
+
+{-| You dont want to apply `DrawOp` one at a time, its inefficient. Bundle many `DrawOp` together in one batch, using `batch`.
+
+    line : Point -> Point -> DrawOp
+    line p0 p1 =
         Canvas.batch
             [ BeginPath
             , LineWidth 2
@@ -147,9 +169,9 @@ toHtml =
             , Stroke
             ]
 -}
-batch : List DrawOp -> Canvas -> Canvas
+batch : List DrawOp -> DrawOp
 batch =
-    Native.Canvas.batch
+    Batch
 
 
 {-| Load up an image as a `Canvas` from a url.
@@ -187,7 +209,7 @@ loadImage =
     --   Black | White
     --         |
 
-    getImageData twoBytwoCanvas == fromList
+    getImageData (Point 0 0) (Size 2 2) twoBytwoCanvas ==
         [ 0, 0, 0, 255,      255, 0, 0, 255
         , 0, 0, 0, 255,      255, 255, 255, 255
         ]

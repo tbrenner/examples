@@ -1,14 +1,13 @@
 module Main exposing (..)
 
 import Html exposing (..)
-import Canvas exposing (Size, Error, DrawOp(..), Canvas)
-import Canvas.Point exposing (Point)
-import Canvas.Point as Point
-import Canvas.Events
-import Color exposing (Color)
+import Canvas exposing (Size, Error, Point, DrawOp(..), Canvas)
+import MouseEvents exposing (MouseEvent)
 import Task
+import Color
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = ( Loading, loadImage )
@@ -24,7 +23,7 @@ main =
 
 type Msg
     = ImageLoaded (Result Error Canvas)
-    | Move Point
+    | Move MouseEvent
 
 
 type Model
@@ -45,22 +44,22 @@ loadImage =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
-    case message of
-        ImageLoaded result ->
-            case Result.toMaybe result of
-                Just canvas ->
-                    ( GotCanvas canvas (Point.fromInts ( 0, 0 )), Cmd.none )
+    case ( message, model ) of
+        ( ImageLoaded (Ok canvas), _ ) ->
+            ( GotCanvas canvas (Point 0 0), Cmd.none )
 
-                Nothing ->
-                    ( Loading, loadImage )
+        ( Move mouseEvent, GotCanvas canvas _ ) ->
+            ( GotCanvas canvas (toPoint mouseEvent), Cmd.none )
 
-        Move position ->
-            case model of
-                Loading ->
-                    ( Loading, loadImage )
+        _ ->
+            ( Loading, loadImage )
 
-                GotCanvas canvas _ ->
-                    ( GotCanvas canvas position, Cmd.none )
+
+toPoint : MouseEvent -> Point
+toPoint { targetPos, clientPos } =
+    Point
+        (toFloat (clientPos.x - targetPos.x))
+        (toFloat (clientPos.y - targetPos.y))
 
 
 
@@ -82,30 +81,28 @@ presentIfReady model =
         Loading ->
             p [] [ text "Loading image" ]
 
-        GotCanvas canvas position ->
-            drawSquare position canvas
-                |> Canvas.toHtml
-                    [ Canvas.Events.onMouseMove Move ]
+        GotCanvas canvas point ->
+            let
+                size =
+                    Canvas.getSize canvas
+            in
+                canvas
+                    |> Canvas.draw (drawSquare point size)
+                    |> Canvas.toHtml
+                        [ MouseEvents.onMouseMove Move ]
 
 
-drawSquare : Point -> Canvas -> Canvas
-drawSquare point canvas =
-    Canvas.batch
-        [ StrokeStyle Color.red
-        , LineWidth 15
-        , StrokeRect point <|
-            calcSize point <|
-                Canvas.getSize canvas
-        ]
-        canvas
+drawSquare : Point -> Size -> DrawOp
+drawSquare point size =
+    [ StrokeStyle Color.red
+    , LineWidth 15
+    , StrokeRect point (calcSize point size)
+    ]
+        |> Canvas.batch
 
 
 calcSize : Point -> Size -> Size
-calcSize point { width, height } =
-    let
-        ( x, y ) =
-            Point.toInts point
-    in
-        Size
-            (width - 2 * x)
-            (height - 2 * y)
+calcSize { x, y } { width, height } =
+    Size
+        (width - 2 * (floor x))
+        (height - 2 * (floor y))
