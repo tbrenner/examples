@@ -4,7 +4,7 @@
     "repository": "https://github.com/elm-canvas/elm-canvas.git",
     "license": "BSD3",
     "source-directories": [
-        "src"
+        "src", "7-viewport"
     ],
     "exposed-modules": [
         "Canvas",
@@ -17,7 +17,8 @@
         "elm-lang/animation-frame": "1.0.1 <= v < 2.0.0",
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
         "elm-lang/html": "2.0.0 <= v < 3.0.0",
-        "elm-lang/window": "1.0.1 <= v < 2.0.0"
+        "elm-lang/window": "1.0.1 <= v < 2.0.0",
+        "elm-lang/keyboard": "1.0.0 <= v < 2.0.0"
     },
     "elm-version": "0.18.0 <= v < 0.19.0"
 }
